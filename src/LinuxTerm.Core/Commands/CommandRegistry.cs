@@ -83,6 +83,27 @@ public class CommandRegistry
         registry.Register(new CurlCommand());
         registry.Register(new WgetCommand());
 
+        // Stream & Text processing commands
+        registry.Register(new SedCommand());
+        registry.Register(new AwkCommand());
+        registry.Register(new CutCommand());
+        registry.Register(new SortCommand());
+        registry.Register(new UniqCommand());
+        registry.Register(new TrCommand());
+        registry.Register(new TeeCommand());
+        registry.Register(new XargsCommand());
+        registry.Register(new DiffCommand());
+
+        // Checksum & Cryptography commands
+        registry.Register(new Md5SumCommand());
+        registry.Register(new Sha256SumCommand());
+
+        // Advanced Diagnostic & System commands
+        registry.Register(new NeofetchCommand());
+        registry.Register(new DuCommand());
+        registry.Register(new NetstatCommand());
+        registry.Register(new SleepCommand());
+
         return registry;
     }
 }

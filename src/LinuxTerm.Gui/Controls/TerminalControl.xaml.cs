@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -22,6 +23,8 @@ public partial class TerminalControl : UserControl
     public ShellEngine Engine { get; }
 
     public event Action<string>? TitleChanged;
+    public event Action? SplitVerticalRequested;
+    public event Action? SplitHorizontalRequested;
 
     private int _historyIndex;
     private string? _historyStash;
@@ -29,6 +32,10 @@ public partial class TerminalControl : UserControl
     private bool _isRunning;
     private TerminalTheme _currentTheme = TerminalTheme.VsCodeDark;
     private Paragraph? _currentParagraph;
+
+    // Search state
+    private readonly List<TextRange> _searchResults = new();
+    private int _currentSearchIndex = -1;
 
     public TerminalControl(string? initialDirectory = null)
     {
@@ -154,7 +161,6 @@ public partial class TerminalControl : UserControl
 
         Dispatcher.Invoke(() =>
         {
-            // Handle clear screen ANSI code \x1b[2J\x1b[H
             if (text.Contains("\x1b[2J"))
             {
                 TerminalDoc.Blocks.Clear();
@@ -212,6 +218,30 @@ public partial class TerminalControl : UserControl
 
     private async void CommandInput_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Ctrl+F: Open Search Bar
+        if (e.Key == Key.F && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            e.Handled = true;
+            OpenSearchBar();
+            return;
+        }
+
+        // Ctrl+Shift+E: Split Vertically
+        if (e.Key == Key.E && Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            e.Handled = true;
+            SplitVerticalRequested?.Invoke();
+            return;
+        }
+
+        // Ctrl+Shift+O: Split Horizontally
+        if (e.Key == Key.O && Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            e.Handled = true;
+            SplitHorizontalRequested?.Invoke();
+            return;
+        }
+
         // Enter: execute command
         if (e.Key == Key.Enter)
         {
@@ -311,6 +341,14 @@ public partial class TerminalControl : UserControl
 
     private void OutputBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Ctrl+F: Open Search Bar
+        if (e.Key == Key.F && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            e.Handled = true;
+            OpenSearchBar();
+            return;
+        }
+
         // If user presses Ctrl+C and no text is selected, cancel running command or forward to input
         if (e.Key == Key.C && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
@@ -328,7 +366,7 @@ public partial class TerminalControl : UserControl
         }
 
         // Focus input on typing
-        if (!char.IsControl((char)KeyInterop.VirtualKeyFromKey(e.Key)))
+        if (!char.IsControl((char)KeyInterop.VirtualKeyFromKey(e.Key)) && !Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
             CommandInput.Focus();
         }
@@ -336,7 +374,6 @@ public partial class TerminalControl : UserControl
 
     private void OutputBox_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Clicking in output area allows selection or quick refocusing of input
         if (e.ClickCount == 1 && string.IsNullOrEmpty(OutputBox.Selection.Text))
         {
             CommandInput.Focus();
@@ -351,10 +388,9 @@ public partial class TerminalControl : UserControl
             return;
         }
 
-        // Echo prompt and executed command in terminal buffer
         AppendAnsi($"{PromptBlock.Text}{commandLine}\n");
 
-        _historyIndex = Context.History.Count + 1; // Will be incremented inside ShellEngine
+        _historyIndex = Context.History.Count + 1;
         _isRunning = true;
         RunningIndicator.Visibility = Visibility.Visible;
         CommandInput.IsEnabled = false;
@@ -412,12 +448,10 @@ public partial class TerminalControl : UserControl
 
         if (lastSpace == -1)
         {
-            // Built-in commands and aliases
             matches.AddRange(Engine.Registry.GetCommandNames().Where(c => c.StartsWith(wordPrefix, StringComparison.OrdinalIgnoreCase)));
             matches.AddRange(Context.Aliases.Keys.Where(a => a.StartsWith(wordPrefix, StringComparison.OrdinalIgnoreCase)));
         }
 
-        // File and directory completion
         try
         {
             string searchDir = Context.CurrentDirectory;
@@ -448,7 +482,7 @@ public partial class TerminalControl : UserControl
                         }
                         else
                         {
-                            matches.Add(completed);
+                            candidatesAdd(matches, completed);
                         }
                     }
                 }
@@ -468,6 +502,11 @@ public partial class TerminalControl : UserControl
         {
             ShowSuggestions(matches.Take(12).ToList());
         }
+    }
+
+    private static void candidatesAdd(List<string> list, string item)
+    {
+        list.Add(item);
     }
 
     private void ShowSuggestions(List<string> suggestions)
@@ -523,6 +562,171 @@ public partial class TerminalControl : UserControl
         }
     }
 
+    // --- Search Bar Implementation ---
+    public void OpenSearchBar()
+    {
+        SearchBar.Visibility = Visibility.Visible;
+        SearchInput.Focus();
+        SearchInput.SelectAll();
+    }
+
+    private void BtnCloseSearch_Click(object sender, RoutedEventArgs e)
+    {
+        SearchBar.Visibility = Visibility.Collapsed;
+        CommandInput.Focus();
+    }
+
+    private void SearchInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            BtnCloseSearch_Click(sender, e);
+        }
+        else if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            bool reverse = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+            FindNext(!reverse);
+        }
+    }
+
+    private void SearchInput_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        RefreshSearchResults();
+    }
+
+    private void BtnFindNext_Click(object sender, RoutedEventArgs e) => FindNext(true);
+    private void BtnFindPrev_Click(object sender, RoutedEventArgs e) => FindNext(false);
+
+    private void RefreshSearchResults()
+    {
+        _searchResults.Clear();
+        _currentSearchIndex = -1;
+
+        string query = SearchInput.Text;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            SearchCountBlock.Text = "No matches";
+            return;
+        }
+
+        var start = TerminalDoc.ContentStart;
+        while (start != null && start.CompareTo(TerminalDoc.ContentEnd) < 0)
+        {
+            if (start.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+            {
+                string text = start.GetTextInRun(LogicalDirection.Forward);
+                int idx = 0;
+                while ((idx = text.IndexOf(query, idx, StringComparison.OrdinalIgnoreCase)) != -1)
+                {
+                    var p1 = start.GetPositionAtOffset(idx);
+                    var p2 = start.GetPositionAtOffset(idx + query.Length);
+                    if (p1 != null && p2 != null)
+                    {
+                        _searchResults.Add(new TextRange(p1, p2));
+                    }
+                    idx += query.Length;
+                }
+            }
+            start = start.GetNextContextPosition(LogicalDirection.Forward);
+        }
+
+        if (_searchResults.Count > 0)
+        {
+            _currentSearchIndex = 0;
+            HighlightMatch();
+        }
+        else
+        {
+            SearchCountBlock.Text = "0 of 0";
+        }
+    }
+
+    private void FindNext(bool forward)
+    {
+        if (_searchResults.Count == 0) return;
+
+        if (forward)
+        {
+            _currentSearchIndex = (_currentSearchIndex + 1) % _searchResults.Count;
+        }
+        else
+        {
+            _currentSearchIndex = (_currentSearchIndex - 1 + _searchResults.Count) % _searchResults.Count;
+        }
+
+        HighlightMatch();
+    }
+
+    private void HighlightMatch()
+    {
+        if (_currentSearchIndex < 0 || _currentSearchIndex >= _searchResults.Count) return;
+
+        var targetRange = _searchResults[_currentSearchIndex];
+        OutputBox.Selection.Select(targetRange.Start, targetRange.End);
+        var rect = targetRange.Start.GetCharacterRect(LogicalDirection.Forward);
+        OutputBox.ScrollToVerticalOffset(OutputBox.VerticalOffset + rect.Top - 50);
+
+        SearchCountBlock.Text = $"{_currentSearchIndex + 1} of {_searchResults.Count}";
+    }
+
+    // --- Context Menu Actions ---
+    private void MenuCopy_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(OutputBox.Selection.Text))
+        {
+            Clipboard.SetText(OutputBox.Selection.Text);
+        }
+    }
+
+    private void MenuPaste_Click(object sender, RoutedEventArgs e)
+    {
+        if (Clipboard.ContainsText())
+        {
+            var text = Clipboard.GetText();
+            CommandInput.SelectedText = text;
+            CommandInput.CaretIndex += text.Length;
+        }
+        CommandInput.Focus();
+    }
+
+    private void MenuFind_Click(object sender, RoutedEventArgs e)
+    {
+        OpenSearchBar();
+    }
+
+    private void MenuClear_Click(object sender, RoutedEventArgs e)
+    {
+        TerminalDoc.Blocks.Clear();
+        _currentParagraph = null;
+        CommandInput.Focus();
+    }
+
+    private void MenuSplitVertical_Click(object sender, RoutedEventArgs e)
+    {
+        SplitVerticalRequested?.Invoke();
+    }
+
+    private void MenuSplitHorizontal_Click(object sender, RoutedEventArgs e)
+    {
+        SplitHorizontalRequested?.Invoke();
+    }
+
+    private void MenuOpenExplorer_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{Context.CurrentDirectory}\"",
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+
     private class WpfAnsiWriter : TextWriter
     {
         private readonly TerminalControl _control;
@@ -533,25 +737,9 @@ public partial class TerminalControl : UserControl
             _control = control;
         }
 
-        public override void Write(char value)
-        {
-            _control.AppendAnsi(value.ToString());
-        }
-
-        public override void Write(string? value)
-        {
-            if (value != null)
-                _control.AppendAnsi(value);
-        }
-
-        public override void WriteLine(string? value)
-        {
-            _control.AppendAnsi((value ?? string.Empty) + "\n");
-        }
-
-        public override void WriteLine()
-        {
-            _control.AppendAnsi("\n");
-        }
+        public override void Write(char value) => _control.AppendAnsi(value.ToString());
+        public override void Write(string? value) { if (value != null) _control.AppendAnsi(value); }
+        public override void WriteLine(string? value) => _control.AppendAnsi((value ?? string.Empty) + "\n");
+        public override void WriteLine() => _control.AppendAnsi("\n");
     }
 }

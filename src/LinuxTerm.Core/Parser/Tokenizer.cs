@@ -230,7 +230,6 @@ public static class Tokenizer
             {
                 // Double quotes: variable expansion and basic escapes
                 i++;
-                var innerSb = new StringBuilder();
                 while (i < input.Length && input[i] != '"')
                 {
                     if (input[i] == '\\' && i + 1 < input.Length)
@@ -238,30 +237,68 @@ public static class Tokenizer
                         char next = input[i + 1];
                         if (next is '"' or '\\' or '$' or '`')
                         {
-                            innerSb.Append(next);
+                            sb.Append(next);
                             i += 2;
                             continue;
                         }
                         else if (next == 'n')
                         {
-                            innerSb.Append('\n');
+                            sb.Append('\n');
                             i += 2;
                             continue;
                         }
                         else if (next == 't')
                         {
-                            innerSb.Append('\t');
+                            sb.Append('\t');
                             i += 2;
                             continue;
                         }
                     }
-                    innerSb.Append(input[i]);
+                    else if (input[i] == '$')
+                    {
+                        i++;
+                        if (i < input.Length && input[i] == '?')
+                        {
+                            sb.Append(context.LastExitCode);
+                            i++;
+                            continue;
+                        }
+                        else if (i < input.Length && input[i] == '{')
+                        {
+                            int closeIdx = input.IndexOf('}', i + 1);
+                            if (closeIdx != -1)
+                            {
+                                var varName = input.Substring(i + 1, closeIdx - (i + 1));
+                                sb.Append(context.EnvironmentVariables.GetValueOrDefault(varName, string.Empty));
+                                i = closeIdx + 1;
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            int varStart = i;
+                            while (i < input.Length && (char.IsLetter(input[i]) || input[i] == '_'))
+                            {
+                                i++;
+                            }
+                            if (i > varStart)
+                            {
+                                var varName = input[varStart..i];
+                                sb.Append(context.EnvironmentVariables.GetValueOrDefault(varName, string.Empty));
+                                continue;
+                            }
+                        }
+
+                        // If not a variable name, preserve literal '$'
+                        sb.Append('$');
+                        continue;
+                    }
+
+                    sb.Append(input[i]);
                     i++;
                 }
                 if (i < input.Length && input[i] == '"')
                     i++; // skip closing quote
-
-                sb.Append(context.ExpandVariables(innerSb.ToString()));
             }
             else if (c == '\\')
             {

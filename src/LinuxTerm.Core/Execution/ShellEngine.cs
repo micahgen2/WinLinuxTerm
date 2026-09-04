@@ -32,13 +32,16 @@ public class ShellEngine
         if (string.IsNullOrWhiteSpace(commandLine))
             return 0;
 
-        commandLine = commandLine.Trim();
+        commandLine = ExpandHistory(commandLine.Trim(), context);
 
         // Record history
         if (context.History.Count == 0 || context.History[^1] != commandLine)
         {
             context.History.Add(commandLine);
         }
+
+        // Evaluate command substitutions $(cmd) and `cmd`
+        commandLine = await EvaluateCommandSubstitutionsAsync(commandLine, context, ct);
 
         IShellNode? ast;
         try
@@ -218,5 +221,91 @@ public class ShellEngine
             outStream?.Dispose();
             inStream?.Dispose();
         }
+    }
+
+    private static string ExpandHistory(string commandLine, ShellContext context)
+    {
+        if (commandLine == "!!" && context.History.Count > 0)
+        {
+            return context.History[^1];
+        }
+
+        if (commandLine.StartsWith("!") && commandLine.Length > 1)
+        {
+            if (int.TryParse(commandLine[1..], out int idx))
+            {
+                int zeroIdx = idx > 0 ? idx - 1 : context.History.Count + idx;
+                if (zeroIdx >= 0 && zeroIdx < context.History.Count)
+                    return context.History[zeroIdx];
+            }
+        }
+
+        return commandLine;
+    }
+
+    private async Task<string> EvaluateCommandSubstitutionsAsync(string input, ShellContext context, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(input) || (!input.Contains("$(") && !input.Contains('`')))
+            return input;
+
+        // 1. Process $(...)
+        int safetyLimit = 20;
+        while (safetyLimit-- > 0)
+        {
+            int start = input.IndexOf("$(");
+            if (start == -1) break;
+
+            int depth = 1;
+            int i = start + 2;
+            bool inSingle = false;
+            bool inDouble = false;
+
+            while (i < input.Length && depth > 0)
+            {
+                char c = input[i];
+                if (c == '\'' && !inDouble) inSingle = !inSingle;
+                else if (c == '"' && !inSingle) inDouble = !inDouble;
+                else if (!inSingle && !inDouble)
+                {
+                    if (c == '(') depth++;
+                    else if (c == ')') depth--;
+                }
+                i++;
+            }
+
+            if (depth == 0)
+            {
+                var innerCmd = input.Substring(start + 2, i - 1 - (start + 2));
+                var subOut = new StringWriter();
+                var subErr = new StringWriter();
+                await ExecuteAsync(innerCmd, context, TextReader.Null, subOut, subErr, ct);
+                var replacement = subOut.ToString().TrimEnd('\r', '\n');
+                input = input[..start] + replacement + input[i..];
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // 2. Process `...`
+        safetyLimit = 20;
+        while (safetyLimit-- > 0)
+        {
+            int start = input.IndexOf('`');
+            if (start == -1) break;
+
+            int end = input.IndexOf('`', start + 1);
+            if (end == -1) break;
+
+            var innerCmd = input.Substring(start + 1, end - start - 1);
+            var subOut = new StringWriter();
+            var subErr = new StringWriter();
+            await ExecuteAsync(innerCmd, context, TextReader.Null, subOut, subErr, ct);
+            var replacement = subOut.ToString().TrimEnd('\r', '\n');
+            input = input[..start] + replacement + input[(end + 1)..];
+        }
+
+        return input;
     }
 }

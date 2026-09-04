@@ -81,8 +81,24 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- Theme & Zoom Toolbar -->
+                <!-- Theme, Split & Zoom Toolbar -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <!-- Split Controls -->
+                    <Button Content="◫" Width="26" Height="22" FontSize="13"
+                            Background="#2D2D30" Foreground="#CCCCCC" BorderThickness="0"
+                            Margin="0,0,3,0" Cursor="Hand" ToolTip="Split Vertically (Ctrl+Shift+E)"
+                            Click="BtnSplitVertical_Click" />
+                    <Button Content="⬒" Width="26" Height="22" FontSize="13"
+                            Background="#2D2D30" Foreground="#CCCCCC" BorderThickness="0"
+                            Margin="0,0,8,0" Cursor="Hand" ToolTip="Split Horizontally (Ctrl+Shift+O)"
+                            Click="BtnSplitHorizontal_Click" />
+
+                    <!-- Search Button -->
+                    <Button Content="🔍" Width="24" Height="22" FontSize="11"
+                            Background="#2D2D30" Foreground="#CCCCCC" BorderThickness="0"
+                            Margin="0,0,8,0" Cursor="Hand" ToolTip="Find in Terminal (Ctrl+F)"
+                            Click="BtnFind_Click" />
+
                     <!-- Zoom Controls -->
                     <Button Content="-" Width="22" Height="22" FontSize="14" FontWeight="Bold"
                             Background="#2D2D30" Foreground="#CCCCCC" BorderThickness="0"

@@ -51,7 +51,13 @@ public class Program
         // Support -c "command" non-interactive mode
         if (args.Length >= 2 && args[0] == "-c")
         {
-            var commandLine = string.Join(" ", args.Skip(1));
+            var rawCmd = Environment.CommandLine;
+            int cIndex = rawCmd.IndexOf("-c ");
+            string commandLine = cIndex != -1 ? rawCmd[(cIndex + 3)..].Trim() : string.Join(" ", args.Skip(1));
+            if (commandLine.StartsWith('"') && commandLine.EndsWith('"') && commandLine.Length >= 2)
+            {
+                commandLine = commandLine[1..^1];
+            }
             return await engine.ExecuteAsync(commandLine, context, Console.In, Console.Out, Console.Error);
         }
 

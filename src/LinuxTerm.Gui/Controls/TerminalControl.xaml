@@ -15,29 +15,91 @@
             <RowDefinition Height="24" />
         </Grid.RowDefinitions>
 
-        <!-- Terminal Output Buffer -->
-        <RichTextBox x:Name="OutputBox"
-                     Grid.Row="0"
-                     Background="Transparent"
-                     Foreground="#CCCCCC"
-                     BorderThickness="0"
-                     FontFamily="Cascadia Code, Consolas, Courier New"
-                     FontSize="13.5"
-                     IsReadOnly="True"
-                     IsUndoEnabled="False"
-                     VerticalScrollBarVisibility="Auto"
-                     HorizontalScrollBarVisibility="Auto"
-                     Padding="12,10,12,6"
-                     PreviewKeyDown="OutputBox_PreviewKeyDown"
-                     MouseLeftButtonDown="OutputBox_MouseLeftButtonDown">
-            <RichTextBox.Resources>
-                <Style TargetType="{x:Type Paragraph}">
-                    <Setter Property="Margin" Value="0" />
-                    <Setter Property="LineHeight" Value="1.3" />
-                </Style>
-            </RichTextBox.Resources>
-            <FlowDocument x:Name="TerminalDoc" PagePadding="0" />
-        </RichTextBox>
+        <!-- Terminal Output Buffer & Search Bar Overlay -->
+        <Grid Grid.Row="0">
+            <RichTextBox x:Name="OutputBox"
+                         Background="Transparent"
+                         Foreground="#CCCCCC"
+                         BorderThickness="0"
+                         FontFamily="Cascadia Code, Consolas, Courier New"
+                         FontSize="13.5"
+                         IsReadOnly="True"
+                         IsUndoEnabled="False"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         Padding="12,10,12,6"
+                         PreviewKeyDown="OutputBox_PreviewKeyDown"
+                         MouseLeftButtonDown="OutputBox_MouseLeftButtonDown">
+                <RichTextBox.ContextMenu>
+                    <ContextMenu Background="#252526" Foreground="#CCCCCC" BorderBrush="#3E3E42">
+                        <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="MenuCopy_Click" />
+                        <MenuItem Header="Paste" InputGestureText="Ctrl+V" Click="MenuPaste_Click" />
+                        <Separator Background="#3E3E42" />
+                        <MenuItem Header="Find..." InputGestureText="Ctrl+F" Click="MenuFind_Click" />
+                        <MenuItem Header="Clear Screen" InputGestureText="Ctrl+L" Click="MenuClear_Click" />
+                        <Separator Background="#3E3E42" />
+                        <MenuItem Header="Split Vertically" InputGestureText="Ctrl+Shift+E" Click="MenuSplitVertical_Click" />
+                        <MenuItem Header="Split Horizontally" InputGestureText="Ctrl+Shift+O" Click="MenuSplitHorizontal_Click" />
+                        <Separator Background="#3E3E42" />
+                        <MenuItem Header="Open Folder in Explorer" Click="MenuOpenExplorer_Click" />
+                    </ContextMenu>
+                </RichTextBox.ContextMenu>
+                <RichTextBox.Resources>
+                    <Style TargetType="{x:Type Paragraph}">
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="LineHeight" Value="1.3" />
+                    </Style>
+                </RichTextBox.Resources>
+                <FlowDocument x:Name="TerminalDoc" PagePadding="0" />
+            </RichTextBox>
+
+            <!-- Floating Search Bar Overlay (Ctrl+F) -->
+            <Border x:Name="SearchBar"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,8,16,0"
+                    Background="#2D2D30"
+                    BorderBrush="#007ACC"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="6,4,6,4"
+                    Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal">
+                    <TextBox x:Name="SearchInput"
+                             Width="160"
+                             Height="22"
+                             Background="#1E1E1E"
+                             Foreground="#FFFFFF"
+                             BorderBrush="#3E3E42"
+                             BorderThickness="1"
+                             FontFamily="Cascadia Code, Consolas"
+                             FontSize="12"
+                             VerticalAlignment="Center"
+                             TextChanged="SearchInput_TextChanged"
+                             KeyDown="SearchInput_KeyDown" />
+                    
+                    <TextBlock x:Name="SearchCountBlock"
+                               Text="No matches"
+                               Foreground="#888888"
+                               FontSize="11"
+                               VerticalAlignment="Center"
+                               Margin="8,0,8,0" />
+
+                    <Button Content="▲" Width="22" Height="22" FontSize="10"
+                            Background="#3E3E42" Foreground="#CCCCCC" BorderThickness="0"
+                            Margin="0,0,3,0" Cursor="Hand" ToolTip="Previous Match (Shift+Enter)"
+                            Click="BtnFindPrev_Click" />
+                    <Button Content="▼" Width="22" Height="22" FontSize="10"
+                            Background="#3E3E42" Foreground="#CCCCCC" BorderThickness="0"
+                            Margin="0,0,6,0" Cursor="Hand" ToolTip="Next Match (Enter)"
+                            Click="BtnFindNext_Click" />
+                    <Button Content="✕" Width="20" Height="22" FontSize="10"
+                            Background="Transparent" Foreground="#888888" BorderThickness="0"
+                            Cursor="Hand" ToolTip="Close (Esc)"
+                            Click="BtnCloseSearch_Click" />
+                </StackPanel>
+            </Border>
+        </Grid>
 
         <!-- Autocomplete Suggestions Popup/Box -->
         <Border x:Name="SuggestionsBorder"
@@ -86,7 +148,15 @@
                          FontSize="13.5"
                          VerticalAlignment="Center"
                          PreviewKeyDown="CommandInput_PreviewKeyDown"
-                         TextChanged="CommandInput_TextChanged" />
+                         TextChanged="CommandInput_TextChanged">
+                    <TextBox.ContextMenu>
+                        <ContextMenu Background="#252526" Foreground="#CCCCCC" BorderBrush="#3E3E42">
+                            <MenuItem Header="Paste" InputGestureText="Ctrl+V" Click="MenuPaste_Click" />
+                            <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="MenuCopy_Click" />
+                            <MenuItem Header="Clear Screen" InputGestureText="Ctrl+L" Click="MenuClear_Click" />
+                        </ContextMenu>
+                    </TextBox.ContextMenu>
+                </TextBox>
 
                 <!-- Running Indicator -->
                 <StackPanel Grid.Column="2" 
