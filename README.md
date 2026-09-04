@@ -5,6 +5,7 @@
 ![Terminal Emulator](https://img.shields.io/badge/Platform-Windows-blue)
 ![C#](https://img.shields.io/badge/Language-C%23%2014%20%2F%20.NET%2010-purple)
 ![Tests](https://img.shields.io/badge/Tests-27%20Passed-brightgreen)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 **WinLinuxTerm** bridges the gap between Windows and Linux environments without requiring WSL or heavy container runtimes. It includes both a sleek, multi-tab WPF desktop GUI and a fast, lightweight interactive CLI runner.
 
@@ -136,3 +137,10 @@ dotnet run --project src/LinuxTerm.Cli/LinuxTerm.Cli.csproj -- -c "uname -a && f
 ```powershell
 dotnet test tests/LinuxTerm.Tests/LinuxTerm.Tests.csproj
 ```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
