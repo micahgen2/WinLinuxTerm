@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LinuxTerm.Cli/LinuxTerm.Cli.csproj" />
+    <Project Path="src/LinuxTerm.Core/LinuxTerm.Core.csproj" />
+    <Project Path="src/LinuxTerm.Gui/LinuxTerm.Gui.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LinuxTerm.Tests/LinuxTerm.Tests.csproj" />
+  </Folder>
+</Solution>
