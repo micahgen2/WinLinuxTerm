@@ -109,6 +109,51 @@ public class CommandRegistry
         registry.Register(new VimCommand());
         registry.Register(new ViCommand());
 
+        // Archive & Compression commands
+        registry.Register(new TarCommand());
+        registry.Register(new GzipCommand());
+        registry.Register(new GunzipCommand());
+        registry.Register(new ZipCommand());
+        registry.Register(new UnzipCommand());
+
+        // Path & File Metadata commands
+        registry.Register(new FileCommand());
+        registry.Register(new StatCommand());
+        registry.Register(new BasenameCommand());
+        registry.Register(new DirnameCommand());
+        registry.Register(new RealpathCommand());
+        registry.Register(new ReadlinkCommand());
+
+        // Additional Text Processing commands
+        registry.Register(new TacCommand());
+        registry.Register(new RevCommand());
+        registry.Register(new NlCommand());
+        registry.Register(new FoldCommand());
+        registry.Register(new PasteCommand());
+        registry.Register(new CommCommand());
+        registry.Register(new CmpCommand());
+        registry.Register(new ExpandCommand());
+        registry.Register(new UnexpandCommand());
+
+        // System & Generator commands
+        registry.Register(new TopCommand());
+        registry.Register(new IdCommand());
+        registry.Register(new GroupsCommand());
+        registry.Register(new ArchCommand());
+        registry.Register(new PrintenvCommand());
+        registry.Register(new SeqCommand());
+        registry.Register(new YesCommand());
+        registry.Register(new TrueCommand());
+        registry.Register(new FalseCommand());
+        registry.Register(new CalCommand());
+        registry.Register(new ShufCommand());
+
+        // Network Diagnostics commands
+        registry.Register(new PingCommand());
+        registry.Register(new IfconfigCommand());
+        registry.Register(new IpCommand());
+        registry.Register(new NslookupCommand());
+
         return registry;
     }
 }
