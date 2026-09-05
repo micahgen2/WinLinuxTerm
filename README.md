@@ -4,7 +4,7 @@
 
 ![Terminal Emulator](https://img.shields.io/badge/Platform-Windows-blue)
 ![C#](https://img.shields.io/badge/Language-C%23%2014%20%2F%20.NET%2010-purple)
-![Tests](https://img.shields.io/badge/Tests-38%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-49%20Passed-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 **WinLinuxTerm** bridges the gap between Windows and Linux environments without requiring WSL or heavy container runtimes. It includes both a sleek, multi-tab WPF desktop GUI and a fast, lightweight interactive CLI runner.
@@ -12,6 +12,16 @@
 ---
 
 ## Key Features
+
+- **Built-in Linux Visual Text Editors (`nano` & `vim` / `vi`)**:
+  - Pure C# full-screen interactive editors running seamlessly in both GUI and CLI.
+  - **GNU Nano**: Modeless editing, status bar, prompt dialogues, and shortcuts (`^O` WriteOut, `^X` Exit, `^K` Cut, `^U` Uncut/Paste, `^W` Where Is, `^C` Cursor location, `^G` Help).
+  - **Vim / Vi**: Modal state machine (`Normal`, `Insert`, `CommandLine`, `Search`):
+    - Motions: `h`, `j`, `k`, `l`, `w`, `b`, `0`, `$`, `^`, `gg`, `G`
+    - Quick Edits: `x`, `D`, `dd`, `yy`, `p`, `P`, `u` (undo), `Ctrl+R` (redo)
+    - Ex / Colon Commands: `:w`, `:w <file>`, `:q`, `:q!`, `:wq`, `:x`, `:set nu`, `:set nonu`, `:<number>` line jump
+    - In-buffer search: `/pattern` and `n` / `N` navigation
+  - Themed GUI overlay with line numbers, custom block cursor caret, and smooth keyboard capture.
 
 - **POSIX/Linux Shell Emulation Engine (`LinuxTerm.Core`)**:
   - **Command Substitution**: Evaluates nested commands via `$(command)` and `` `command` `` (e.g. `echo "Kernel: $(uname -r)"`).
@@ -64,6 +74,8 @@
 | | `touch` | Create files or update timestamps |
 | | `find` | Search files in hierarchy (`-name`, `-type f\|d`, `-maxdepth`) |
 | | `tree` | ASCII directory hierarchy tree (`-L depth`, `-a`) |
+| **Text Editors** | `nano` | GNU nano modeless interactive editor (`^O` save, `^X` exit, `^K` cut, `^U` paste, `^W` find) |
+| | `vim` / `vi` | Vi IMproved modal editor (`Normal`, `Insert`, `CommandLine`, `Search`, motions, `:w`, `:q`, `:wq`) |
 | **Stream & Text Processing** | `sed` | Stream editor substitution (`s/find/replace/g`, `s/find/replace/i`) |
 | | `awk` | Pattern scanning and column printing (`{print $1, $2}`, `-F delim`, `$NF`) |
 | | `cut` | Remove/extract fields from lines (`-d delim`, `-f fields`) |
@@ -116,18 +128,19 @@ WinLinuxTerm/
 ├── WinLinuxTerm.slnx
 ├── WinLinuxTerm.sln
 ├── src/
-│   ├── LinuxTerm.Core/        # Core engine: path mapper, parser, AST, builtins, process runner
+│   ├── LinuxTerm.Core/        # Core engine: path mapper, parser, AST, builtins, text editors
 │   │   ├── Common/            # PosixPathMapper, ShellContext, AnsiText
 │   │   ├── Parser/            # Tokenizer, CommandAst
-│   │   ├── Commands/          # FileCommands, TextCommands, StreamCommands, CryptoCommands, DiagnosticCommands
+│   │   ├── Commands/          # FileCommands, TextCommands, StreamCommands, EditorCommands, DiagnosticCommands
+│   │   ├── Editors/           # TextBuffer, NanoSession, VimSession
 │   │   └── Execution/         # ShellEngine, ProcessRunner
 │   ├── LinuxTerm.Gui/         # WPF multi-tab terminal emulator application
-│   │   ├── Controls/          # TerminalControl, search overlay, suggestions, buffer
+│   │   ├── Controls/          # TerminalControl, full-screen editor overlay, search overlay, suggestions
 │   │   ├── Themes/            # TerminalTheme definitions
 │   │   └── MainWindow.xaml    # Main window chrome, tab bar, split panes, theme selector
 │   └── LinuxTerm.Cli/         # Console REPL and non-interactive runner
 └── tests/
-    └── LinuxTerm.Tests/       # xUnit test suite (38 unit tests)
+    └── LinuxTerm.Tests/       # xUnit test suite (49 unit tests)
 ```
 
 ---

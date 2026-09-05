@@ -104,6 +104,11 @@ public class CommandRegistry
         registry.Register(new NetstatCommand());
         registry.Register(new SleepCommand());
 
+        // Text Editors
+        registry.Register(new NanoCommand());
+        registry.Register(new VimCommand());
+        registry.Register(new ViCommand());
+
         return registry;
     }
 }

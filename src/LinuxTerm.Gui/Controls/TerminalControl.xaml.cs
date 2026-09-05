@@ -12,6 +12,9 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using LinuxTerm.Core.Common;
+using LinuxTerm.Core.Editors;
+using LinuxTerm.Core.Editors.Nano;
+using LinuxTerm.Core.Editors.Vim;
 using LinuxTerm.Core.Execution;
 using LinuxTerm.Gui.Themes;
 
@@ -37,12 +40,21 @@ public partial class TerminalControl : UserControl
     private readonly List<TextRange> _searchResults = new();
     private int _currentSearchIndex = -1;
 
+    // Active full-screen editor session state
+    private NanoSession? _activeNanoSession;
+    private VimSession? _activeVimSession;
+    private TaskCompletionSource<int>? _activeEditorTcs;
+
     public TerminalControl(string? initialDirectory = null)
     {
         InitializeComponent();
         Context = new ShellContext(initialDirectory);
         Engine = new ShellEngine();
         _historyIndex = 0;
+
+        // Hook up GUI interactive text editors
+        Context.NanoGuiHandler = LaunchNanoGuiAsync;
+        Context.VimGuiHandler = LaunchVimGuiAsync;
     }
 
     private void UserControl_Loaded(object sender, RoutedEventArgs e)
@@ -64,6 +76,14 @@ public partial class TerminalControl : UserControl
         CommandInput.Foreground = theme.ForegroundBrush;
         CommandInput.CaretBrush = theme.AccentBrush;
 
+        // Editor overlay theme styling
+        EditorOverlay.Background = theme.BackgroundBrush;
+        EditorHeader.Background = theme.AccentBrush;
+        EditorLineNumbersBorder.Background = theme.HeaderBackgroundBrush;
+        EditorStatusBar.Background = theme.HeaderBackgroundBrush;
+        EditorShortcutBar.Background = theme.HeaderBackgroundBrush;
+        EditorStatusText.Foreground = theme.ForegroundBrush;
+
         UpdatePrompt();
     }
 
@@ -74,6 +94,8 @@ public partial class TerminalControl : UserControl
             OutputBox.FontSize = size;
             CommandInput.FontSize = size;
             PromptBlock.FontSize = size;
+            EditorRichTextBox.FontSize = size;
+            EditorLineNumbers.FontSize = size;
         }
     }
 
@@ -742,4 +764,360 @@ public partial class TerminalControl : UserControl
         public override void WriteLine(string? value) => _control.AppendAnsi((value ?? string.Empty) + "\n");
         public override void WriteLine() => _control.AppendAnsi("\n");
     }
+
+    #region Interactive Text Editor Overlay (Nano & Vim)
+
+    private Task<int> LaunchNanoGuiAsync(NanoSession session, CancellationToken ct)
+    {
+        var tcs = new TaskCompletionSource<int>();
+        _activeEditorTcs = tcs;
+        _activeNanoSession = session;
+        _activeVimSession = null;
+
+        ct.Register(() =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                CloseEditorOverlay();
+                tcs.TrySetCanceled();
+            });
+        });
+
+        Dispatcher.Invoke(() =>
+        {
+            OpenNanoGui(session);
+        });
+
+        return tcs.Task;
+    }
+
+    private Task<int> LaunchVimGuiAsync(VimSession session, CancellationToken ct)
+    {
+        var tcs = new TaskCompletionSource<int>();
+        _activeEditorTcs = tcs;
+        _activeVimSession = session;
+        _activeNanoSession = null;
+
+        ct.Register(() =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                CloseEditorOverlay();
+                tcs.TrySetCanceled();
+            });
+        });
+
+        Dispatcher.Invoke(() =>
+        {
+            OpenVimGui(session);
+        });
+
+        return tcs.Task;
+    }
+
+    private void OpenNanoGui(NanoSession session)
+    {
+        EditorOverlay.Visibility = Visibility.Visible;
+        EditorHeader.Visibility = Visibility.Visible;
+        EditorLineNumbersBorder.Visibility = Visibility.Collapsed;
+        EditorShortcutBar.Visibility = Visibility.Visible;
+
+        RenderNanoView();
+        EditorOverlay.Focus();
+    }
+
+    private void OpenVimGui(VimSession session)
+    {
+        EditorOverlay.Visibility = Visibility.Visible;
+        EditorHeader.Visibility = Visibility.Collapsed;
+        EditorLineNumbersBorder.Visibility = session.ShowLineNumbers ? Visibility.Visible : Visibility.Collapsed;
+        EditorShortcutBar.Visibility = Visibility.Collapsed;
+
+        RenderVimView();
+        EditorOverlay.Focus();
+    }
+
+    private void RenderNanoView()
+    {
+        if (_activeNanoSession == null) return;
+
+        var buf = _activeNanoSession.Buffer;
+        EditorHeaderTitle.Text = "GNU nano 8.0";
+        EditorHeaderFile.Text = $"File: {Path.GetFileName(buf.FilePath ?? "New Buffer")}";
+        EditorHeaderModified.Visibility = buf.IsModified ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_activeNanoSession.IsInPrompt)
+        {
+            EditorStatusText.Text = $"{_activeNanoSession.PromptLabel}{_activeNanoSession.PromptInput}";
+            EditorStatusText.Foreground = new SolidColorBrush(Color.FromRgb(255, 204, 0));
+        }
+        else if (!string.IsNullOrEmpty(_activeNanoSession.StatusMessage))
+        {
+            EditorStatusText.Text = $"[ {_activeNanoSession.StatusMessage} ]";
+            EditorStatusText.Foreground = _currentTheme.ForegroundBrush;
+        }
+        else
+        {
+            EditorStatusText.Text = string.Empty;
+        }
+
+        int curLineLen = buf.GetLineText(buf.CursorRow).Length;
+        int pct = buf.LineCount > 0 ? (int)((buf.CursorRow + 1.0) / buf.LineCount * 100) : 100;
+        EditorPositionText.Text = $"line {buf.CursorRow + 1}/{buf.LineCount} ({pct}%), col {buf.CursorCol + 1}/{curLineLen + 1}";
+
+        RenderDocBuffer(buf);
+    }
+
+    private void RenderVimView()
+    {
+        if (_activeVimSession == null) return;
+
+        var buf = _activeVimSession.Buffer;
+        EditorLineNumbersBorder.Visibility = _activeVimSession.ShowLineNumbers ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_activeVimSession.ShowLineNumbers)
+        {
+            var sbNums = new StringBuilder();
+            for (int i = 1; i <= buf.LineCount; i++)
+            {
+                sbNums.AppendLine(i.ToString().PadLeft(4));
+            }
+            for (int i = 0; i < 15; i++)
+            {
+                sbNums.AppendLine("   ~");
+            }
+            EditorLineNumbers.Text = sbNums.ToString();
+        }
+
+        if (_activeVimSession.Mode == VimMode.Insert)
+        {
+            EditorStatusText.Text = "-- INSERT --";
+            EditorStatusText.Foreground = new SolidColorBrush(Color.FromRgb(78, 201, 176));
+        }
+        else if (_activeVimSession.Mode == VimMode.CommandLine)
+        {
+            EditorStatusText.Text = $":{_activeVimSession.CommandBuffer}";
+            EditorStatusText.Foreground = _currentTheme.ForegroundBrush;
+        }
+        else if (_activeVimSession.Mode == VimMode.Search)
+        {
+            EditorStatusText.Text = $"/{_activeVimSession.CommandBuffer}";
+            EditorStatusText.Foreground = _currentTheme.ForegroundBrush;
+        }
+        else if (!string.IsNullOrEmpty(_activeVimSession.StatusMessage))
+        {
+            EditorStatusText.Text = _activeVimSession.StatusMessage;
+            EditorStatusText.Foreground = _currentTheme.ForegroundBrush;
+        }
+        else
+        {
+            EditorStatusText.Text = string.Empty;
+        }
+
+        int pct = buf.LineCount > 0 ? (int)((buf.CursorRow + 1.0) / buf.LineCount * 100) : 100;
+        EditorPositionText.Text = $"{buf.CursorRow + 1},{buf.CursorCol + 1}        {pct}%";
+
+        RenderDocBuffer(buf);
+    }
+
+    private void RenderDocBuffer(TextBuffer buf)
+    {
+        EditorDoc.Blocks.Clear();
+        for (int r = 0; r < buf.LineCount; r++)
+        {
+            var p = new Paragraph { Margin = new Thickness(0), LineHeight = 1.3 };
+            var line = buf.GetLineText(r);
+
+            if (r == buf.CursorRow)
+            {
+                int col = Math.Clamp(buf.CursorCol, 0, line.Length);
+                if (col > 0)
+                {
+                    p.Inlines.Add(new Run(line[..col]) { Foreground = _currentTheme.ForegroundBrush });
+                }
+
+                char curChar = col < line.Length ? line[col] : ' ';
+                p.Inlines.Add(new Run(curChar.ToString())
+                {
+                    Background = _currentTheme.AccentBrush,
+                    Foreground = Brushes.Black,
+                    FontWeight = FontWeights.Bold
+                });
+
+                if (col + 1 < line.Length)
+                {
+                    p.Inlines.Add(new Run(line[(col + 1)..]) { Foreground = _currentTheme.ForegroundBrush });
+                }
+            }
+            else
+            {
+                p.Inlines.Add(new Run(string.IsNullOrEmpty(line) ? " " : line) { Foreground = _currentTheme.ForegroundBrush });
+            }
+
+            EditorDoc.Blocks.Add(p);
+        }
+
+        if (buf.CursorRow < EditorDoc.Blocks.Count)
+        {
+            EditorDoc.Blocks.ElementAt(buf.CursorRow).BringIntoView();
+        }
+    }
+
+    private void CloseEditorOverlay()
+    {
+        EditorOverlay.Visibility = Visibility.Collapsed;
+        _activeNanoSession = null;
+        _activeVimSession = null;
+        CommandInput.Focus();
+        _activeEditorTcs?.TrySetResult(0);
+    }
+
+    private void EditorOverlay_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        ConsoleModifiers mods = 0;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) mods |= ConsoleModifiers.Control;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) mods |= ConsoleModifiers.Shift;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) mods |= ConsoleModifiers.Alt;
+
+        // Control key combinations
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            var cKey = ConvertWpfKeyToConsoleKey(e.Key);
+            if (cKey != ConsoleKey.None)
+            {
+                e.Handled = true;
+                if (_activeNanoSession != null)
+                {
+                    _activeNanoSession.ProcessKey(cKey, '\0', mods);
+                    if (_activeNanoSession.IsExited) CloseEditorOverlay();
+                    else RenderNanoView();
+                }
+                else if (_activeVimSession != null)
+                {
+                    _activeVimSession.ProcessKey(cKey, '\0', mods);
+                    if (_activeVimSession.IsExited) CloseEditorOverlay();
+                    else RenderVimView();
+                }
+            }
+            return;
+        }
+
+        // Special keys (Enter, Back, Escape, Delete, Tab, Arrows, Navigation)
+        var specialKey = ConvertWpfKeyToConsoleKey(e.Key);
+        if (specialKey is ConsoleKey.Enter or ConsoleKey.Backspace or ConsoleKey.Delete or ConsoleKey.Escape or ConsoleKey.Tab
+            or ConsoleKey.UpArrow or ConsoleKey.DownArrow or ConsoleKey.LeftArrow or ConsoleKey.RightArrow
+            or ConsoleKey.Home or ConsoleKey.End or ConsoleKey.PageUp or ConsoleKey.PageDown)
+        {
+            e.Handled = true;
+            char keyChar = specialKey switch
+            {
+                ConsoleKey.Enter => '\r',
+                ConsoleKey.Backspace => '\b',
+                ConsoleKey.Tab => '\t',
+                _ => '\0'
+            };
+
+            if (_activeNanoSession != null)
+            {
+                _activeNanoSession.ProcessKey(specialKey, keyChar, mods);
+                if (_activeNanoSession.IsExited) CloseEditorOverlay();
+                else RenderNanoView();
+            }
+            else if (_activeVimSession != null)
+            {
+                _activeVimSession.ProcessKey(specialKey, keyChar, mods);
+                if (_activeVimSession.IsExited) CloseEditorOverlay();
+                else RenderVimView();
+            }
+        }
+    }
+
+    private void EditorOverlay_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.Text)) return;
+
+        e.Handled = true;
+        foreach (char c in e.Text)
+        {
+            if (char.IsControl(c)) continue;
+
+            ConsoleKey consoleKey = c switch
+            {
+                >= 'a' and <= 'z' => (ConsoleKey)(c - 'a' + (int)ConsoleKey.A),
+                >= 'A' and <= 'Z' => (ConsoleKey)(c - 'A' + (int)ConsoleKey.A),
+                >= '0' and <= '9' => (ConsoleKey)(c - '0' + (int)ConsoleKey.D0),
+                _ => ConsoleKey.None
+            };
+
+            ConsoleModifiers mods = 0;
+            if (char.IsUpper(c)) mods |= ConsoleModifiers.Shift;
+
+            if (_activeNanoSession != null)
+            {
+                _activeNanoSession.ProcessKey(consoleKey, c, mods);
+                if (_activeNanoSession.IsExited)
+                {
+                    CloseEditorOverlay();
+                    return;
+                }
+            }
+            else if (_activeVimSession != null)
+            {
+                _activeVimSession.ProcessKey(consoleKey, c, mods);
+                if (_activeVimSession.IsExited)
+                {
+                    CloseEditorOverlay();
+                    return;
+                }
+            }
+        }
+
+        if (_activeNanoSession != null) RenderNanoView();
+        else if (_activeVimSession != null) RenderVimView();
+    }
+
+    private void EditorOverlay_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        EditorOverlay.Focus();
+    }
+
+    private static ConsoleKey ConvertWpfKeyToConsoleKey(Key key)
+    {
+        return key switch
+        {
+            Key.Return => ConsoleKey.Enter,
+            Key.Back => ConsoleKey.Backspace,
+            Key.Escape => ConsoleKey.Escape,
+            Key.Tab => ConsoleKey.Tab,
+            Key.Space => ConsoleKey.Spacebar,
+            Key.Delete => ConsoleKey.Delete,
+            Key.Insert => ConsoleKey.Insert,
+            Key.Home => ConsoleKey.Home,
+            Key.End => ConsoleKey.End,
+            Key.PageUp => ConsoleKey.PageUp,
+            Key.PageDown => ConsoleKey.PageDown,
+            Key.Up => ConsoleKey.UpArrow,
+            Key.Down => ConsoleKey.DownArrow,
+            Key.Left => ConsoleKey.LeftArrow,
+            Key.Right => ConsoleKey.RightArrow,
+            >= Key.A and <= Key.Z => (ConsoleKey)((int)ConsoleKey.A + (key - Key.A)),
+            >= Key.D0 and <= Key.D9 => (ConsoleKey)((int)ConsoleKey.D0 + (key - Key.D0)),
+            >= Key.NumPad0 and <= Key.NumPad9 => (ConsoleKey)((int)ConsoleKey.NumPad0 + (key - Key.NumPad0)),
+            Key.F1 => ConsoleKey.F1,
+            Key.F2 => ConsoleKey.F2,
+            Key.F3 => ConsoleKey.F3,
+            Key.F4 => ConsoleKey.F4,
+            Key.F5 => ConsoleKey.F5,
+            Key.F6 => ConsoleKey.F6,
+            Key.F7 => ConsoleKey.F7,
+            Key.F8 => ConsoleKey.F8,
+            Key.F9 => ConsoleKey.F9,
+            Key.F10 => ConsoleKey.F10,
+            Key.F11 => ConsoleKey.F11,
+            Key.F12 => ConsoleKey.F12,
+            _ => ConsoleKey.None
+        };
+    }
+
+    #endregion
 }

@@ -222,5 +222,141 @@
                 </StackPanel>
             </Grid>
         </Border>
+
+        <!-- Full-Screen Interactive Editor Overlay (Nano & Vim) -->
+        <Grid x:Name="EditorOverlay"
+              Grid.Row="0"
+              Grid.RowSpan="4"
+              Background="#1E1E1E"
+              Visibility="Collapsed"
+              Focusable="True"
+              PreviewKeyDown="EditorOverlay_PreviewKeyDown"
+              PreviewTextInput="EditorOverlay_PreviewTextInput"
+              MouseDown="EditorOverlay_MouseDown">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" /> <!-- Header Bar -->
+                <RowDefinition Height="*" />    <!-- Main Text Area -->
+                <RowDefinition Height="Auto" /> <!-- Status / Prompt Bar -->
+                <RowDefinition Height="Auto" /> <!-- Nano Shortcut Bar -->
+            </Grid.RowDefinitions>
+
+            <!-- Editor Header Bar (Nano Title / Modified) -->
+            <Border x:Name="EditorHeader"
+                    Grid.Row="0"
+                    Background="#007ACC"
+                    Padding="10,4,10,4">
+                <Grid>
+                    <TextBlock x:Name="EditorHeaderTitle"
+                               Text="GNU nano 8.0"
+                               FontFamily="Cascadia Code, Consolas"
+                               FontSize="12"
+                               FontWeight="Bold"
+                               Foreground="#FFFFFF"
+                               HorizontalAlignment="Left" />
+                    <TextBlock x:Name="EditorHeaderFile"
+                               Text="File: untitled.txt"
+                               FontFamily="Cascadia Code, Consolas"
+                               FontSize="12"
+                               Foreground="#FFFFFF"
+                               HorizontalAlignment="Center" />
+                    <TextBlock x:Name="EditorHeaderModified"
+                               Text="Modified"
+                               FontFamily="Cascadia Code, Consolas"
+                               FontSize="12"
+                               FontWeight="Bold"
+                               Foreground="#FFD700"
+                               HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+
+            <!-- Main Text Canvas -->
+            <Grid Grid.Row="1" x:Name="EditorContentGrid" Margin="0" Background="Transparent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" /> <!-- Line Numbers -->
+                    <ColumnDefinition Width="*" />    <!-- Buffer Lines -->
+                </Grid.ColumnDefinitions>
+
+                <!-- Line Numbers Column (Vim) -->
+                <Border Grid.Column="0"
+                        x:Name="EditorLineNumbersBorder"
+                        Background="#181818"
+                        BorderBrush="#2D2D30"
+                        BorderThickness="0,0,1,0"
+                        Padding="8,4,8,4"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="EditorLineNumbers"
+                               FontFamily="Cascadia Code, Consolas"
+                               FontSize="13.5"
+                               Foreground="#5A5A5A"
+                               TextAlignment="Right"
+                               LineHeight="1.3" />
+                </Border>
+
+                <!-- Scrollable Buffer Text Canvas -->
+                <ScrollViewer Grid.Column="1"
+                              x:Name="EditorScrollViewer"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto"
+                              Padding="8,4,8,4">
+                    <RichTextBox x:Name="EditorRichTextBox"
+                                 Background="Transparent"
+                                 Foreground="#CCCCCC"
+                                 BorderThickness="0"
+                                 FontFamily="Cascadia Code, Consolas, Courier New"
+                                 FontSize="13.5"
+                                 IsReadOnly="True"
+                                 IsUndoEnabled="False"
+                                 Focusable="False">
+                        <RichTextBox.Resources>
+                            <Style TargetType="{x:Type Paragraph}">
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="LineHeight" Value="1.3" />
+                            </Style>
+                        </RichTextBox.Resources>
+                        <FlowDocument x:Name="EditorDoc" PagePadding="0" />
+                    </RichTextBox>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Status / Message / Prompt Bar -->
+            <Border x:Name="EditorStatusBar"
+                    Grid.Row="2"
+                    Background="#252526"
+                    BorderBrush="#333337"
+                    BorderThickness="0,1,0,0"
+                    Padding="10,4,10,4">
+                <Grid>
+                    <TextBlock x:Name="EditorStatusText"
+                               FontFamily="Cascadia Code, Consolas"
+                               FontSize="12"
+                               Foreground="#CCCCCC"
+                               HorizontalAlignment="Left" />
+                    <TextBlock x:Name="EditorPositionText"
+                               FontFamily="Cascadia Code, Consolas"
+                               FontSize="12"
+                               Foreground="#858585"
+                               HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+
+            <!-- Nano 2-Line Shortcut Helper Panel -->
+            <Border x:Name="EditorShortcutBar"
+                    Grid.Row="3"
+                    Background="#181818"
+                    BorderBrush="#2D2D30"
+                    BorderThickness="0,1,0,0"
+                    Padding="10,4,10,4">
+                <StackPanel>
+                    <TextBlock Text="^G Help     ^O WriteOut     ^W Where Is     ^K Cut Text"
+                               FontFamily="Cascadia Code, Consolas"
+                               FontSize="11.5"
+                               Foreground="#DCDCAA" />
+                    <TextBlock Text="^X Exit     ^R Read File    ^\ Replace      ^U Paste Text"
+                               FontFamily="Cascadia Code, Consolas"
+                               FontSize="11.5"
+                               Foreground="#DCDCAA" />
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

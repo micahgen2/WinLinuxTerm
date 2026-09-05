@@ -3,6 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Principal;
+using System.Threading;
+using System.Threading.Tasks;
+using LinuxTerm.Core.Editors.Nano;
+using LinuxTerm.Core.Editors.Vim;
 
 namespace LinuxTerm.Core.Common;
 
@@ -51,6 +55,16 @@ public class ShellContext
 
     public string UserName => EnvironmentVariables.GetValueOrDefault("USER", Environment.UserName.ToLowerInvariant());
     public string HostName => EnvironmentVariables.GetValueOrDefault("HOSTNAME", Environment.MachineName.ToLowerInvariant());
+
+    /// <summary>
+    /// Optional GUI callback for interactive Nano editing sessions.
+    /// </summary>
+    public Func<NanoSession, CancellationToken, Task<int>>? NanoGuiHandler { get; set; }
+
+    /// <summary>
+    /// Optional GUI callback for interactive Vim editing sessions.
+    /// </summary>
+    public Func<VimSession, CancellationToken, Task<int>>? VimGuiHandler { get; set; }
 
     public ShellContext(string? initialDirectory = null)
     {
