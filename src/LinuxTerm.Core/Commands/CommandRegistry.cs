@@ -137,6 +137,7 @@ public class CommandRegistry
 
         // System & Generator commands
         registry.Register(new TopCommand());
+        registry.Register(new HtopCommand());
         registry.Register(new IdCommand());
         registry.Register(new GroupsCommand());
         registry.Register(new ArchCommand());

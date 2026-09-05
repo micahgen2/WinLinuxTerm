@@ -466,4 +466,30 @@ public class ExtendedCommandTests : IDisposable
         Assert.Equal(3, lines.Length);
         Assert.All(lines, l => Assert.Equal("hello", l));
     }
+
+    [Fact]
+    public async Task Htop_BatchMode_RendersFrame()
+    {
+        var (c1, out1, _) = await RunAsync("htop -b");
+        Assert.Equal(0, c1);
+        Assert.Contains("Mem[", out1);
+        Assert.Contains("Tasks:", out1);
+        Assert.Contains("Load average:", out1);
+        Assert.Contains("Uptime:", out1);
+        Assert.Contains("PID", out1);
+        Assert.Contains("Command", out1);
+        Assert.Contains("F10", out1);
+        Assert.Contains("Quit", out1);
+    }
+
+    [Fact]
+    public async Task Htop_Help_PrintsUsage()
+    {
+        var (c1, out1, _) = await RunAsync("htop --help");
+        Assert.Equal(0, c1);
+        Assert.Contains("htop - interactive process viewer", out1);
+        Assert.Contains("Usage: htop", out1);
+        Assert.Contains("--delay", out1);
+        Assert.Contains("--sort-key", out1);
+    }
 }

@@ -4,7 +4,7 @@
 
 ![Terminal Emulator](https://img.shields.io/badge/Platform-Windows-blue)
 ![C#](https://img.shields.io/badge/Language-C%23%2014%20%2F%20.NET%2010-purple)
-![Tests](https://img.shields.io/badge/Tests-80%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-82%20Passed-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 **WinLinuxTerm** bridges the gap between Windows and Linux environments without requiring WSL or heavy container runtimes. It includes both a sleek, multi-tab WPF desktop GUI and a fast, lightweight interactive CLI runner.
@@ -114,7 +114,8 @@
 | | `base64` | Base64 encode or decode (`-d`) files or stdin |
 | **Checksum & Security** | `sha256sum` | Compute and check SHA-256 cryptographic message digests |
 | | `md5sum` | Compute and check MD5 message digests |
-| **System & Status** | `top` | Dynamic / snapshot process and resource monitor (`-b` batch, `-n` iterations, `-d` delay) |
+| **System & Status** | `htop` | Interactive process viewer with colored CPU meters, memory gauges, and F1-F10 keys (`-d`, `-u`, `-p`, `-s`, `-b`) |
+| | `top` | Dynamic / snapshot process and resource monitor (`-b` batch, `-n` iterations, `-d` delay) |
 | | `neofetch` | Iconic ASCII art system info badge (OS, Kernel, Uptime, CPU, RAM) |
 | | `uname` | Print system info (`-a`, `-s`, `-n`, `-r`, `-v`, `-m`, `-o`) |
 | | `whoami` | Print current effective username |
@@ -168,7 +169,7 @@ WinLinuxTerm/
 │   │   ├── Parser/            # Tokenizer, CommandAst
 │   │   ├── Commands/          # FileCommands, TextCommands, StreamCommands, EditorCommands,
 │   │   │                      # ArchiveCommands, PathUtilCommands, MoreTextCommands,
-│   │   │                      # MoreSystemCommands, MoreNetCommands, DiagnosticCommands
+│   │   │                      # MoreSystemCommands, MoreNetCommands, DiagnosticCommands, HtopCommand
 │   │   ├── Editors/           # TextBuffer, NanoSession, VimSession
 │   │   └── Execution/         # ShellEngine, ProcessRunner
 │   ├── LinuxTerm.Gui/         # WPF multi-tab terminal emulator application
@@ -177,7 +178,7 @@ WinLinuxTerm/
 │   │   └── MainWindow.xaml    # Main window chrome, tab bar, split panes, theme selector
 │   └── LinuxTerm.Cli/         # Console REPL and non-interactive runner
 └── tests/
-    └── LinuxTerm.Tests/       # xUnit test suite (80 unit tests)
+    └── LinuxTerm.Tests/       # xUnit test suite (82 unit tests)
 ```
 
 ---
