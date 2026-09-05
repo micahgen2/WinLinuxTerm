@@ -49,9 +49,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // Populate Theme Selector
+        // Populate Theme Selector with custom visual template
         ThemeSelector.ItemsSource = TerminalTheme.AllThemes;
-        ThemeSelector.DisplayMemberPath = "Name";
         ThemeSelector.SelectedItem = TerminalTheme.VsCodeDark;
 
         // Open initial tab
@@ -85,12 +84,12 @@ public partial class MainWindow : Window
         var headerBorder = new Border
         {
             Background = _currentTheme.TabActiveBackgroundBrush,
-            BorderBrush = new SolidColorBrush(Color.FromRgb(45, 45, 48)),
-            BorderThickness = new Thickness(0, 0, 1, 0),
-            Padding = new Thickness(10, 5, 8, 5),
+            BorderBrush = _currentTheme.AccentBrush,
+            BorderThickness = new Thickness(0, 2, 1, 0),
+            Padding = new Thickness(12, 5, 8, 5),
             Margin = new Thickness(0),
             Cursor = Cursors.Hand,
-            Height = 32
+            Height = 34
         };
 
         var headerGrid = new Grid();
@@ -134,6 +133,24 @@ public partial class MainWindow : Window
         headerBorder.MouseLeftButtonDown += (s, e) =>
         {
             SelectTab(_tabs.IndexOf(tab));
+        };
+
+        headerBorder.MouseEnter += (s, e) =>
+        {
+            int idx = _tabs.IndexOf(tab);
+            if (idx != _activeTabIndex)
+            {
+                headerBorder.Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+            }
+        };
+
+        headerBorder.MouseLeave += (s, e) =>
+        {
+            int idx = _tabs.IndexOf(tab);
+            if (idx != _activeTabIndex)
+            {
+                headerBorder.Background = _currentTheme.TabInactiveBackgroundBrush;
+            }
         };
 
         closeBtn.Click += (s, e) =>
@@ -245,8 +262,10 @@ public partial class MainWindow : Window
         {
             bool isActive = i == index;
             _tabs[i].HeaderElement.Background = isActive ? _currentTheme.TabActiveBackgroundBrush : _currentTheme.TabInactiveBackgroundBrush;
+            _tabs[i].HeaderElement.BorderThickness = isActive ? new Thickness(0, 2, 1, 0) : new Thickness(0, 0, 1, 0);
+            _tabs[i].HeaderElement.BorderBrush = isActive ? _currentTheme.AccentBrush : new SolidColorBrush(Color.FromRgb(45, 45, 48));
             _tabs[i].HeaderTextBlock.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
-            _tabs[i].HeaderTextBlock.Foreground = isActive ? _currentTheme.ForegroundBrush : new SolidColorBrush(Color.FromRgb(140, 140, 140));
+            _tabs[i].HeaderTextBlock.Foreground = isActive ? _currentTheme.ForegroundBrush : new SolidColorBrush(Color.FromRgb(160, 160, 160));
         }
 
         // Show active control
